@@ -35,8 +35,8 @@
 # - yes https://github.com/maplepolis/cscb58-final-project
 #
 # Any additional information that the TA needs to know:
-# - (write here, if any)
-#
+# I made this project with the goal of creating clear and concise code.
+# Hope it meets the expectations.
 #####################################################################
 
 .eqv BASE_ADDRESS 0x10008000
@@ -44,17 +44,19 @@
 .eqv WHITE 0xffffff
 .eqv ORANGE 0xff9400
 .eqv RED 0xff0000
+.eqv HEALTH_RED 0xff67b2
 .eqv DOOR_YELLOW 0xfff900
 .eqv KEY_YELLOW 0xeeff01
 .eqv BLUE 0x005ef5
 .eqv CYAN 0x00ffff
-.eqv HEALTH_RED 0xff007e
 .eqv GREEN 0x01ff36
 .eqv PURPLE 0x8300f3
 .eqv BLACK 0x000000
+.eqv GREY 0xcdceb9
 .data
 player: .space 4
 enemy: .space 4
+enemy_direction: .word -4 #-4 for left 4 for right
 onPlatform:	.word 1
 jumpAmount: .word 2
 health: .word 3
@@ -147,16 +149,8 @@ main:
 		sw $t1, 6908($t0)
 		sw $t1, 6648($t0)
 		
-		#draw ledger
+		#draw key_slot
 		li $a0, CYAN
-		addi $a1, $t0, 1280
-		li $a2, 18
-		jal draw_line
-		
-		addi $a1, $t0, 68
-		li $a2, 5
-		jal draw_vertical_line
-		
 		addi $a1, $t0, 1496
 		li $a2, 10
 		jal draw_line
@@ -165,9 +159,15 @@ main:
 		li $a2, 5
 		jal draw_vertical_line
 		
-		#draw health_slot
+		li $a0, GREY
+		addi $a1, $t0, 484
+		li $a2, 5
+		jal draw_line
 		
-		#draw key_slot
+		addi $a1, $t0, 484
+		li $a2, 3
+		jal draw_vertical_line
+		
 		
 		#draw key
 		li $a0, KEY_YELLOW
@@ -175,6 +175,9 @@ main:
 		li $a2, 3
 		jal draw_line
 		sw $t1 7032($t0)
+		
+		#draw health_number
+		jal update_health
 		
 		#draw obstacle
 		li $a0, PURPLE
@@ -192,7 +195,7 @@ main:
 			lw $t4, onPlatform
 			beq $t4, 0, gravity
 		gravity_checked:
-			#jal move_enemy # moves enemy and determines if enemy hits player
+			jal move_enemy # moves enemy and determines if enemy hits player
 			#jal pickup_health # if player picks up health then health +1
 			#jal check_door # checks if player reached the door and wins
 		
@@ -277,7 +280,6 @@ main:
 		j key_checked
 	
 	pressed_p:
-		
 		j initialize
 	
 	check_on_platform:
@@ -301,10 +303,13 @@ main:
 		beq $t5, RED, on_lava
 		
 		not_on_lava:
-		jr $ra
+			jr $ra
 		
 		on_lava:
-		j initialize
+			lw $t6, health
+			subi $t6, $t6, 1
+			sw $t6, health
+			j initialize
 		
 	
 	gravity:
@@ -315,28 +320,60 @@ main:
 		jal draw_player
     	
     	j gravity_checked
+    	
+    draw_enemy:
+		sw $a0, 0($t3)
+		sw $a0, -256($t3)
+		sw $a0, -512($t3)
+		jr $ra
 	#moves enemy and checks if it hits the player. If the player is hit, then game over
 	move_enemy:
+		addi $sp, $sp, -4    # decrement stack pointer by 4 bytes
+		sw $ra, 0($sp)     # store $ra on the stack
+		
+		lw $t4, enemy_direction
+		lw $t5, 252($t3)
+		bne $t5, ORANGE, enemy_move_right
+		lw $t5, 260($t3)
+		bne $t5, ORANGE, enemy_move_left
+		j movement
+		
+		enemy_move_right:
+			li $t4, 4
+			sw $t4, enemy_direction
+			j movement
+			
+		enemy_move_left:
+			li $t4, -4
+			sw $t4, enemy_direction
+			j movement
+			
+		movement:
+			li $a0, BLACK
+			jal draw_enemy
+			add $t3, $t3, $t4
+			li $a0, BLUE
+			jal draw_enemy
+		
+		end_move_enemy:
+			lw $ra, 0($sp)     # load $ra from the stack
+			addi $sp, $sp, 4     # increment stack pointer by 4 bytes
+			jr $ra
+
 	
 	#if player reaches a health pickup then increase health by one
 	pickup_health:
 	
-	
 	check_door:
-	
-	#clears screen
-	clear_display:
 	
 	#clears screen and draws winning screen
 	win:
 		#j clear_display
 	
-	#clears screen and draws losing screen
+	#tells player they've lost
 	lose:
-		#j clear_display
-	
-	#clears screen and jumps main
-	restart:
+		#TODO: display "Game Over"
+		j end
 	
 	draw_line:
 		li $s0, 0
@@ -358,6 +395,91 @@ main:
    	 		addi $s0, $s0, 1	# increment loop counter by 1
    		 	j draw_vertical_line_loop		# jump back to the beginning of the loop
 		end_vertical_line_loop:
+			jr $ra
+	
+	update_health:
+		addi $sp, $sp, -4    # decrement stack pointer by 4 bytes
+		sw $ra, 0($sp)     # store $ra on the stack
+		
+		li $a0, BLACK
+		addi $a1, $t0, 520
+		li $a2, 5
+		jal draw_vertical_line
+		addi $a1, $t0, 524
+		li $a2, 5
+		jal draw_vertical_line
+		addi $a1, $t0, 528
+		li $a2, 5
+		jal draw_vertical_line
+			
+		
+		lw $t6, health
+		li $a0, HEALTH_RED
+		beq $t6, 0, health_0
+		beq $t6, 1, health_1
+		beq $t6, 2, health_2
+		beq $t6, 3, health_3
+		beq $t6, 4, health_4
+		
+		health_0:
+			addi $a1, $t0, 520
+			li $a2, 5
+			jal draw_vertical_line
+			addi $a1, $t0, 528
+			li $a2, 5
+			jal draw_vertical_line
+			sw $a0, 524($t0)
+			sw $a0, 1548($t0)
+			j lose
+		
+		health_1:
+			addi $a1, $t0, 520
+			li $a2, 5
+			jal draw_vertical_line
+			j end_update_health
+		
+		health_2:
+			addi $a1, $t0, 520
+			li $a2, 3
+			jal draw_line
+			addi $a1, $t0, 1032
+			li $a2, 3
+			jal draw_line
+			addi $a1, $t0, 1544
+			li $a2, 3
+			jal draw_line
+			sw $a0, 784($t0)
+			sw $a0, 1288($t0)
+			j end_update_health
+		
+		health_3:
+			addi $a1, $t0, 520
+			li $a2, 3
+			jal draw_line
+			addi $a1, $t0, 1032
+			li $a2, 3
+			jal draw_line
+			addi $a1, $t0, 1544
+			li $a2, 3
+			jal draw_line
+			addi $a1, $t0, 528
+			li $a2, 5
+			jal draw_vertical_line
+			j end_update_health
+		
+		health_4:
+			addi $a1, $t0, 520
+			li $a2, 3
+			jal draw_vertical_line
+			addi $a1, $t0, 528
+			li $a2, 5
+			jal draw_vertical_line
+			sw $t1, 784($t0)
+			j end_update_health
+		
+		end_update_health:
+			lw $ra, 0($sp)     # load $ra from the stack
+			addi $sp, $sp, 4     # increment stack pointer by 4 bytes
 			jr $ra
 
 end:
