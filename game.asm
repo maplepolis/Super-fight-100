@@ -56,6 +56,8 @@
 player: .space 4
 enemy: .space 4
 onPlatform:	.word 1
+jumpAmount: .word 2
+health: .word 3
 
 .text
 li $t0, BASE_ADDRESS # $t0 stores the base address for display
@@ -64,6 +66,13 @@ main:
 
 	#stores intial player position
 	initialize:
+	
+		#clears board
+		li $a0, BLACK
+		addi $a1, $t0, 0
+		li $a2, 4096
+		jal draw_line
+		
 		#stores intial player position
 		addi $t2, $t0, 12560
 		sw $t2, player
@@ -177,17 +186,18 @@ main:
 	#loops continuously until win or fail
 	cont_loop:
 		jal check_key_press # checks whether there is a key press and moves player/switch screen as appropriate
-	key_checked:
-		jal check_on_platform
-		lw $t4, onPlatform
-		beq $t4, 0, gravity
-	gravity_checked:
-		#jal move_enemy # moves enemy and determines if enemy hits player
-		#jal pickup_health # if player picks up health then health +1
-		#jal check_door # checks if player reached the door and wins
+		key_checked:
+			jal check_on_platform
+			jal check_on_lava
+			lw $t4, onPlatform
+			beq $t4, 0, gravity
+		gravity_checked:
+			#jal move_enemy # moves enemy and determines if enemy hits player
+			#jal pickup_health # if player picks up health then health +1
+			#jal check_door # checks if player reached the door and wins
 		
 		li $v0, 32
-		li $a0, 200 # Wait 0.2 second (1000 milliseconds)
+		li $a0, 50
 		syscall
 		j cont_loop
 			
@@ -211,6 +221,16 @@ main:
 		j key_checked
 		
 	pressed_a:
+		
+		#checks if it is possible to move left
+		lw $t5, -4($t2)
+		bne $t5, BLACK, key_checked
+		lw $t5, -260($t2)
+		bne $t5, BLACK, key_checked
+		lw $t5, -516($t2)
+		bne $t5, BLACK, key_checked
+		
+		#redraws player and moves left
 		li $a0, BLACK
 		jal draw_player
 		subi $t2, $t2, 4
@@ -220,14 +240,35 @@ main:
 		
 	
 	pressed_w:
-		li $a0, BLACK
-		jal draw_player
-		subi $t2, $t2, 2048
-		li $a0, WHITE
-		jal draw_player
-		j key_checked
+		lw $t6, jumpAmount
+		blez  $t6, key_checked
+		subi $t6, $t6, 1
+		
+		li $t7, 0
+		going_up:
+			beq $t7, 12, going_up_end
+			li $a0, BLACK
+			jal draw_player
+			subi $t2, $t2, 256
+			li $a0, WHITE
+			jal draw_player
+			addi $t7, $t7, 1
+			j going_up
+		
+		going_up_end:
+			sw $t6, jumpAmount
+			j key_checked
 	
 	pressed_d:
+		#checks if it is possible to move right
+		lw $t5, 4($t2)
+		bne $t5, BLACK, key_checked
+		lw $t5, -252($t2)
+		bne $t5, BLACK, key_checked
+		lw $t5, -508($t2)
+		bne $t5, BLACK, key_checked
+		
+		#redraws player and moves right
 		li $a0, BLACK
 		jal draw_player
 		addi $t2, $t2, 4
@@ -251,7 +292,19 @@ main:
 		on_platform:
 		li $t4, 1
 		sw $t4, onPlatform
+		li $t6, 2
+		sw $t6, jumpAmount
 		jr $ra
+		
+	check_on_lava:
+		lw $t5, 256($t2)
+		beq $t5, RED, on_lava
+		
+		not_on_lava:
+		jr $ra
+		
+		on_lava:
+		j initialize
 		
 	
 	gravity:
