@@ -57,9 +57,10 @@
 player: .space 4
 enemy: .space 4
 enemy_direction: .word -4 #-4 for left 4 for right
-onPlatform:	.word 1
+onPlatform:	.word 1 # 1 for on 0 for off
 jumpAmount: .word 2
 health: .word 3
+hasKey: .word 0 # 1 for true 0 for false
 
 .text
 li $t0, BASE_ADDRESS # $t0 stores the base address for display
@@ -74,6 +75,15 @@ main:
 		addi $a1, $t0, 0
 		li $a2, 4096
 		jal draw_line
+		
+		li $a0, ORANGE
+		addi $a1, $t0, -4
+		li $a2, 64
+		jal draw_vertical_line
+		li $a0, ORANGE
+		addi $a1, $t0, 0
+		li $a2, 64
+		jal draw_vertical_line
 		
 		#stores intial player position
 		addi $t2, $t0, 12560
@@ -137,22 +147,22 @@ main:
 		
 		#draw door
 		li $t1, DOOR_YELLOW
+		sw $t1, 6124($t0)
 		sw $t1, 6128($t0)
 		sw $t1, 6132($t0)
 		sw $t1, 6136($t0)
-		sw $t1, 6140($t0)
-		sw $t1, 6384($t0)
-		sw $t1, 6640($t0)
-		sw $t1, 6896($t0)
-		sw $t1, 6396($t0)
-		sw $t1, 6652($t0)
-		sw $t1, 6908($t0)
+		sw $t1, 6380($t0)
+		sw $t1, 6636($t0)
+		sw $t1, 6892($t0)
+		sw $t1, 6392($t0)
 		sw $t1, 6648($t0)
+		sw $t1, 6904($t0)
+		sw $t1, 6644($t0)
 		
 		#draw key_slot
 		li $a0, CYAN
 		addi $a1, $t0, 1496
-		li $a2, 10
+		li $a2, 9
 		jal draw_line
 		
 		addi $a1, $t0, 216
@@ -184,9 +194,8 @@ main:
 		addi $a1, $t0, 5084
 		li $a2, 8
 		jal draw_vertical_line
-		
 	
-	#loops continuously until win or fail
+	#loops continuously until win or fail. This is the infinite loop that keeps the game running.
 	cont_loop:
 		jal check_key_press # checks whether there is a key press and moves player/switch screen as appropriate
 		key_checked:
@@ -203,11 +212,49 @@ main:
 		li $a0, 50
 		syscall
 		j cont_loop
-			
+		
+	check_door:
+		jr $ra
+	
+	check_key:
+		lw $s1, 0($t2)
+		beq $s1, KEY_YELLOW, draw_key
+		lw $s1, -256($t2)
+		beq $s1, KEY_YELLOW, draw_key
+		lw $s1, -512($t2)
+		beq $s1, KEY_YELLOW, draw_key
+		jr $ra
+		
+		draw_key:
+			li $a0, KEY_YELLOW
+			addi $a1, $t0, 484
+			li $a2, 5
+			jal draw_line
+		
+			addi $a1, $t0, 484
+			li $a2, 3
+			jal draw_vertical_line
+			jr $ra
+	
+	check_health_pickup:
+		jr $ra
+	
+	check_green_pickup:
+		jr $ra
+	
+	
 	draw_player:
-		sw $a0, 0($t2)
-		sw $a0, -256($t2)
-		sw $a0, -512($t2)
+	
+		addi $sp, $sp, -4    # decrement stack pointer by 4 bytes
+		sw $ra, 0($sp)     # store $ra on the stack
+		sw $s5, ($a0)
+		
+		sw $s5, 0($t2)
+		sw $s5, -256($t2)
+		sw $s5, -512($t2)
+		
+		lw $ra, 0($sp)     # load $ra from the stack
+		addi $sp, $sp, 4     # increment stack pointer by 4 bytes
 		jr $ra
 	
 	check_key_press:
@@ -285,6 +332,7 @@ main:
 	check_on_platform:
 		lw $t5, 256($t2)
 		beq $t5, ORANGE, on_platform
+		beq $t5, PURPLE, on_platform
 		
 		not_on_platform:
 		li $t4, 0
@@ -320,13 +368,17 @@ main:
 		jal draw_player
     	
     	j gravity_checked
-    	
+    
+    
     draw_enemy:
+    	lw $s1, -512($t3)
+    	beq $s1, WHITE, on_lava #reusing the on_lava function
+    	
 		sw $a0, 0($t3)
 		sw $a0, -256($t3)
 		sw $a0, -512($t3)
 		jr $ra
-	#moves enemy and checks if it hits the player. If the player is hit, then game over
+	#moves enemy and checks if it hits the player. If the player is hit, then health - 1
 	move_enemy:
 		addi $sp, $sp, -4    # decrement stack pointer by 4 bytes
 		sw $ra, 0($sp)     # store $ra on the stack
@@ -359,16 +411,10 @@ main:
 			lw $ra, 0($sp)     # load $ra from the stack
 			addi $sp, $sp, 4     # increment stack pointer by 4 bytes
 			jr $ra
-
-	
-	#if player reaches a health pickup then increase health by one
-	pickup_health:
-	
-	check_door:
 	
 	#clears screen and draws winning screen
 	win:
-		#j clear_display
+		j end
 	
 	#tells player they've lost
 	lose:
