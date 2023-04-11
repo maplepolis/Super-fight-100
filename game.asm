@@ -67,9 +67,18 @@ li $t0, BASE_ADDRESS # $t0 stores the base address for display
 
 main:
 
+	restart:
+		lw $t6, health
+		li $t6, 3
+		sw $t6, health
+	
 	#stores intial player position
 	initialize:
 	
+		lw $t6, hasKey
+		li $t6, 0
+		sw $t6, hasKey
+		
 		#clears board
 		li $a0, BLACK
 		addi $a1, $t0, 0
@@ -194,6 +203,18 @@ main:
 		addi $a1, $t0, 5084
 		li $a2, 8
 		jal draw_vertical_line
+		
+		#draw green_pickup
+		li $t1, GREEN
+		sw $t1 12292($t0)
+		sw $t1 12296($t0)
+		sw $t1 12552($t0)
+		
+		#draw health_pickup
+		li $t1, HEALTH_RED
+		sw $t1 7628($t0)
+		sw $t1 7884($t0)
+		sw $t1 7632($t0)
 	
 	#loops continuously until win or fail. This is the infinite loop that keeps the game running.
 	cont_loop:
@@ -212,18 +233,18 @@ main:
 		li $a0, 50
 		syscall
 		j cont_loop
-		
-	check_door:
-		jr $ra
 	
 	check_key:
+		addi $sp, $sp, -4    # decrement stack pointer by 4 bytes
+		sw $ra, 0($sp)     # store $ra on the stack
+		
 		lw $s1, 0($t2)
 		beq $s1, KEY_YELLOW, draw_key
 		lw $s1, -256($t2)
 		beq $s1, KEY_YELLOW, draw_key
 		lw $s1, -512($t2)
 		beq $s1, KEY_YELLOW, draw_key
-		jr $ra
+		j end_check_key
 		
 		draw_key:
 			li $a0, KEY_YELLOW
@@ -234,20 +255,106 @@ main:
 			addi $a1, $t0, 484
 			li $a2, 3
 			jal draw_vertical_line
+			
+			li $a0, BLACK
+			li $t1, BLACK
+			addi $a1, $t0, 6776
+			li $a2, 3
+			jal draw_line
+			
+			lw $t6, hasKey
+			li $t6, 1
+			sw $t6, hasKey
+		
+			sw $t1 7032($t0)
+			
+		end_check_key:
+			lw $ra, 0($sp)     # load $ra from the stack
+			addi $sp, $sp, 4     # increment stack pointer by 4 bytes
 			jr $ra
 	
 	check_health_pickup:
-		jr $ra
+		addi $sp, $sp, -4    # decrement stack pointer by 4 bytes
+		sw $ra, 0($sp)     # store $ra on the stack
+		
+		lw $s2, 0($t2)
+		beq $s2, HEALTH_RED, draw_health
+		lw $s2, -256($t2)
+		beq $s2, HEALTH_RED, draw_health
+		lw $s2, -512($t2)
+		beq $s2, HEALTH_RED, draw_health
+		j end_check_health_pickup
+		
+		draw_health:
+			li $t1, BLACK
+			sw $t1 7628($t0)
+			sw $t1 7884($t0)
+			sw $t1 7632($t0)
+			
+			lw $s3, health
+			addi $s3, $s3, 1
+			sw $s3, health
+			jal update_health
+			
+		end_check_health_pickup:
+			lw $ra, 0($sp)     # load $ra from the stack
+			addi $sp, $sp, 4     # increment stack pointer by 4 bytes
+			jr $ra
 	
 	check_green_pickup:
-		jr $ra
+		addi $sp, $sp, -4    # decrement stack pointer by 4 bytes
+		sw $ra, 0($sp)     # store $ra on the stack
+		
+		lw $s1, 0($t2)
+		beq $s1, GREEN, green_picked
+		lw $s1, -256($t2)
+		beq $s1, GREEN, green_picked
+		lw $s1, -512($t2)
+		beq $s1, GREEN, green_picked
+		j end_check_green_pickup
+		
+		green_picked:
+			li $t1, BLACK
+			sw $t1 12292($t0)
+			sw $t1 12296($t0)
+			sw $t1 12552($t0)
+			
+			li $a0, BLACK
+			addi $a1, $t0, 5084
+			li $a2, 8
+			jal draw_vertical_line
+			
+		end_check_green_pickup:
+			lw $ra, 0($sp)     # load $ra from the stack
+			addi $sp, $sp, 4     # increment stack pointer by 4 bytes
+			jr $ra
+			
+	check_door:
+		addi $sp, $sp, -4    # decrement stack pointer by 4 bytes
+		sw $ra, 0($sp)     # store $ra on the stack
+		
+		lw $s7, 4($t2)
+		beq $s7, DOOR_YELLOW, door_checked
+		j end_check_door
+		
+		door_checked:
+			lw $s6, hasKey
+			beq $s6, 1, win
+			
+		end_check_door:
+			lw $ra, 0($sp)     # load $ra from the stack
+			addi $sp, $sp, 4     # increment stack pointer by 4 bytes
+			jr $ra
 	
 	
 	draw_player:
-	
 		addi $sp, $sp, -4    # decrement stack pointer by 4 bytes
 		sw $ra, 0($sp)     # store $ra on the stack
-		sw $s5, ($a0)
+		
+		la $s5, ($a0)
+		jal check_health_pickup
+		jal check_key
+		jal check_green_pickup
 		
 		sw $s5, 0($t2)
 		sw $s5, -256($t2)
@@ -268,17 +375,25 @@ main:
 		beq $t4, 0x61, pressed_a # ASCII code of 'a' is 0x61 or 97 in decimal
 		beq $t4 0x64 pressed_d
 		beq $t4 0x77 pressed_w
+		beq $t4 0x70 pressed_p
+		beq $t4 0x73 check_door
 		j key_checked
 		
 	pressed_a:
 		
 		#checks if it is possible to move left
 		lw $t5, -4($t2)
-		bne $t5, BLACK, key_checked
+		beq $t5, ORANGE, key_checked
+		beq $t5, PURPLE, key_checked
+		beq $t5, DOOR_YELLOW, key_checked
 		lw $t5, -260($t2)
-		bne $t5, BLACK, key_checked
+		beq $t5, ORANGE, key_checked
+		beq $t5, PURPLE, key_checked
+		beq $t5, DOOR_YELLOW, key_checked
 		lw $t5, -516($t2)
-		bne $t5, BLACK, key_checked
+		beq $t5, ORANGE, key_checked
+		beq $t5, PURPLE, key_checked
+		beq $t5, DOOR_YELLOW, key_checked
 		
 		#redraws player and moves left
 		li $a0, BLACK
@@ -312,11 +427,17 @@ main:
 	pressed_d:
 		#checks if it is possible to move right
 		lw $t5, 4($t2)
-		bne $t5, BLACK, key_checked
+		beq $t5, ORANGE, key_checked
+		beq $t5, PURPLE, key_checked
+		beq $t5, DOOR_YELLOW, key_checked
 		lw $t5, -252($t2)
-		bne $t5, BLACK, key_checked
+		beq $t5, ORANGE, key_checked
+		beq $t5, PURPLE, key_checked
+		beq $t5, DOOR_YELLOW, key_checked
 		lw $t5, -508($t2)
-		bne $t5, BLACK, key_checked
+		beq $t5, ORANGE, key_checked
+		beq $t5, PURPLE, key_checked
+		beq $t5, DOOR_YELLOW, key_checked
 		
 		#redraws player and moves right
 		li $a0, BLACK
@@ -327,12 +448,13 @@ main:
 		j key_checked
 	
 	pressed_p:
-		j initialize
+		j restart
 	
 	check_on_platform:
 		lw $t5, 256($t2)
 		beq $t5, ORANGE, on_platform
 		beq $t5, PURPLE, on_platform
+		beq $t5, DOOR_YELLOW, on_platform
 		
 		not_on_platform:
 		li $t4, 0
@@ -414,13 +536,34 @@ main:
 	
 	#clears screen and draws winning screen
 	win:
-		j end
+		jal clear_board
+		
+		j restart_loop
 	
 	#tells player they've lost
 	lose:
-		#TODO: display "Game Over"
-		j end
+		jal clear_board
+		j restart_loop
+		
+	restart_loop:
+		lw $t4, 4($t9) # this assumes $t9 is set to 0xfff0000 from before
+		beq $t4 0x70 pressed_p
+		j restart_loop
+		
 	
+	clear_board:
+		addi $sp, $sp, -4    # decrement stack pointer by 4 bytes
+		sw $ra, 0($sp)     # store $ra on the stack
+		
+		li $a0, BLACK
+		addi $a1, $t0, 0
+		li $a2, 4096
+		jal draw_line
+		
+		lw $ra, 0($sp)     # load $ra from the stack
+		addi $sp, $sp, 4     # increment stack pointer by 4 bytes
+		
+		
 	draw_line:
 		li $s0, 0
 		draw_line_loop:
@@ -461,6 +604,7 @@ main:
 		
 		lw $t6, health
 		li $a0, HEALTH_RED
+		li $t1, HEALTH_RED
 		beq $t6, 0, health_0
 		beq $t6, 1, health_1
 		beq $t6, 2, health_2
@@ -520,7 +664,7 @@ main:
 			addi $a1, $t0, 528
 			li $a2, 5
 			jal draw_vertical_line
-			sw $t1, 784($t0)
+			sw $t1, 1036($t0)
 			j end_update_health
 		
 		end_update_health:
