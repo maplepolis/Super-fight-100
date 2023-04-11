@@ -14,7 +14,7 @@
 #
 # Which milestones have been reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1/2/3 (choose the one the applies)
+# - All Milestones
 #
 # Which approved features have been implemented for milestone 3?
 # (See the assignment handout for the list of additional features)
@@ -29,14 +29,15 @@
 # 6. Double jump [1 mark]: the player can double jump
 #
 # Link to video demonstration for final submission:
-# - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
+# - https://youtu.be/3hOSZ_yRq3w
 #
 # Are you OK with us sharing the video with people outside course staff?
 # - yes https://github.com/maplepolis/cscb58-final-project
 #
 # Any additional information that the TA needs to know:
-# I made this project with the goal of creating clear and concise code.
-# Hope it meets the expectations.
+# WAD to move
+# S to insert key into the door
+# Q to quit R to restart
 #####################################################################
 
 .eqv BASE_ADDRESS 0x10008000
@@ -200,8 +201,8 @@ main:
 		
 		#draw obstacle
 		li $a0, PURPLE
-		addi $a1, $t0, 5084
-		li $a2, 8
+		addi $a1, $t0, 4060
+		li $a2, 12
 		jal draw_vertical_line
 		
 		#draw green_pickup
@@ -320,8 +321,8 @@ main:
 			sw $t1 12552($t0)
 			
 			li $a0, BLACK
-			addi $a1, $t0, 5084
-			li $a2, 8
+			addi $a1, $t0, 4060
+			li $a2, 12
 			jal draw_vertical_line
 			
 		end_check_green_pickup:
@@ -376,6 +377,7 @@ main:
 		beq $t4 0x64 pressed_d
 		beq $t4 0x77 pressed_w
 		beq $t4 0x70 pressed_p
+		beq $t4 0x71 pressed_q
 		beq $t4 0x73 check_door
 		j key_checked
 		
@@ -412,6 +414,9 @@ main:
 		li $t7, 0
 		going_up:
 			beq $t7, 12, going_up_end
+			lw $t5, -768($t2)
+			beq $t5, CYAN, going_up_end
+			
 			li $a0, BLACK
 			jal draw_player
 			subi $t2, $t2, 256
@@ -449,6 +454,9 @@ main:
 	
 	pressed_p:
 		j restart
+		
+	pressed_q:
+		j end
 	
 	check_on_platform:
 		lw $t5, 256($t2)
@@ -537,12 +545,199 @@ main:
 	#clears screen and draws winning screen
 	win:
 		jal clear_board
+		li $a0, WHITE
+		li $t1, WHITE
+		
+		#W
+		addi $a1, $t0, 1292
+		li $a2, 6
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 1304
+		li $a2, 6
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 1316
+		li $a2, 6
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 2572
+		li $a2, 7
+		jal draw_line
+		
+		#I
+		addi $a1, $t0, 1332
+		li $a2, 5
+		jal draw_line
+		
+		addi $a1, $t0, 2612
+		li $a2, 5
+		jal draw_line
+		
+		addi $a1, $t0, 1340
+		li $a2, 6
+		jal draw_vertical_line
+		
+		#N
+		addi $a1, $t0, 1364
+		li $a2, 6
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 1380
+		li $a2, 6
+		jal draw_vertical_line
+		
+		sw $t1 1624($t0)
+		sw $t1 1884($t0)
+		sw $t1 2144($t0)
+		
 		
 		j restart_loop
 	
 	#tells player they've lost
 	lose:
 		jal clear_board
+		li $a0, WHITE
+		li $t1, WHITE
+		
+		#G
+		addi $a1, $t0, 1292
+		li $a2, 4
+		jal draw_line
+		
+		addi $a1, $t0, 1292
+		li $a2, 6
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 2572
+		li $a2, 4
+		jal draw_line
+		
+		sw $t1 2068($t0)
+		sw $t1 2072($t0)
+		sw $t1 2328($t0)
+		
+		#A
+		addi $a1, $t0, 1316
+		li $a2, 4
+		jal draw_line
+		
+		addi $a1, $t0, 1316
+		li $a2, 6
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 1328
+		li $a2, 6
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 2084
+		li $a2, 3
+		jal draw_line
+		
+		#M
+		addi $a1, $t0, 1340
+		li $a2, 6
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 1356
+		li $a2, 6
+		jal draw_vertical_line
+		
+		sw $t1 1600($t0)
+		sw $t1 1608($t0)
+		sw $t1 1860($t0)
+		
+		#E
+		addi $a1, $t0, 1368
+		li $a2, 3
+		jal draw_line
+		
+		addi $a1, $t0, 1880
+		li $a2, 3
+		jal draw_line
+		
+		addi $a1, $t0, 2648
+		li $a2, 3
+		jal draw_line
+		
+		addi $a1, $t0, 1368
+		li $a2, 6
+		jal draw_vertical_line
+		
+		#O
+		addi $a1, $t0, 3340
+		li $a2, 4
+		jal draw_line
+		
+		addi $a1, $t0, 4620
+		li $a2, 4
+		jal draw_line
+		
+		addi $a1, $t0, 3340
+		li $a2, 6
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 3352
+		li $a2, 6
+		jal draw_vertical_line
+		
+		#V
+		addi $a1, $t0, 3364
+		li $a2, 3
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 3880
+		li $a2, 3
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 3380
+		li $a2, 3
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 3888
+		li $a2, 3
+		jal draw_vertical_line
+		
+		sw $t1 4396($t0)
+		sw $t1 4652($t0)
+		
+		
+		#E
+		addi $a1, $t0, 3392
+		li $a2, 3
+		jal draw_line
+		
+		addi $a1, $t0, 3904
+		li $a2, 3
+		jal draw_line
+		
+		addi $a1, $t0, 4672
+		li $a2, 3
+		jal draw_line
+		
+		addi $a1, $t0, 3392
+		li $a2, 6
+		jal draw_vertical_line
+		
+		#R
+		addi $a1, $t0, 3412
+		li $a2, 4
+		jal draw_line
+		
+		addi $a1, $t0, 3412
+		li $a2, 6
+		jal draw_vertical_line
+		
+		addi $a1, $t0, 3424
+		li $a2, 3
+		jal draw_vertical_line
+		
+		sw $t1 4184($t0)
+		sw $t1 4188($t0)
+		sw $t1 4444($t0)
+		sw $t1 4448($t0)
+		sw $t1 4704($t0)
+		
 		j restart_loop
 		
 	restart_loop:
